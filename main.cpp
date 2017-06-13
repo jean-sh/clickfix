@@ -72,36 +72,36 @@ int create_uinput()
 	return fd;
 }
 
-void destroy_uinput(const int* fd)
+void destroy_uinput(const int fd)
 {
-	if (ioctl(*fd, UI_DEV_DESTROY) < 0) {
+	if (ioctl(fd, UI_DEV_DESTROY) < 0) {
         die(ERROR_IOCTL);
 	}
 	
-	close(*fd);
+	close(fd);
 }
 
-void inject_event(int* fd, input_event event_to_inject)
+void inject_event(const int fd, input_event& event)
 {
 	/* Writing the event to uinput */
-	input_event event;
-	memset(&event_to_inject, 0, sizeof(input_event));
-// 	event.type = event_to_inject.type;
-// 	event.code = event_to_inject.code;
-// 	event.value = event_to_inject.value;
+	input_event ev;
+	memset(&ev, 0, sizeof(input_event));
+	ev.type = event.type;
+	ev.code = event.code;
+	ev.value = event.value;
 	
-	std::cout << "event_to_inject.type: " << event_to_inject.type << " event_to_inject.code: " << event_to_inject.code << " event_to_inject.value: " << event_to_inject.value << "\n";
+	std::cout << "ev.type: " << ev.type << " ev.code: " << ev.code << " ev.value: " << ev.value << "\n";
 	
-	if (write(*fd, &event_to_inject, sizeof(input_event)) < 0) {
+	if (write(fd, &ev, sizeof(input_event)) < 0) {
 		std::cerr << ERROR_OPEN << "\n";
 	}
 	
 	/* sync */
-	memset(&event_to_inject, 0, sizeof(input_event));
-		event_to_inject.type = EV_SYN;
-		event_to_inject.code = 0;
-		event_to_inject.value = 0;
-		if (write(*fd, &event_to_inject, sizeof(input_event)) < 0) {
+	memset(&ev, 0, sizeof(input_event));
+		ev.type = EV_SYN;
+		ev.code = 0;
+		ev.value = 0;
+		if (write(fd, &ev, sizeof(input_event)) < 0) {
 			std::cerr << ERROR_OPEN << "\n";
 		}
 }
@@ -187,7 +187,7 @@ int main(int argc, char* argv[])
 			}
 		}
 		
-		inject_event(&fd_uinput, ev);
+		inject_event(fd_uinput, ev);
 	}
 
 	close(fd);
