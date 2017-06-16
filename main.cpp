@@ -5,6 +5,7 @@
 #include <cstring>
 #include <linux/input.h>
 #include <linux/uinput.h>
+#include <vector>
 
 // TODO: Profile << vs printf
 
@@ -135,23 +136,29 @@ void inject_event(const int fd, input_event& event)
 	
 	/* sync */
 	memset(&ev, 0, sizeof(input_event));
-	ev.type = EV_SYN;
-	ev.code = 0;
-	ev.value = 0;
-	if (write(fd, &ev, sizeof(input_event)) < 0) {
-		std::cerr << ERROR_OPEN << "\n";
-	}
+		ev.type = EV_SYN;
+		ev.code = 0;
+		ev.value = 0;
+		if (write(fd, &ev, sizeof(input_event)) < 0) {
+			std::cerr << ERROR_OPEN << "\n";
+		}
 }
 
-int get_timeval_usec(const struct timeval& t)
+int get_timeval_usec(struct timeval t)
 {
 	return t.tv_sec * 1000000 + t.tv_usec;
 }
 
 int main(int argc, char* argv[])
 {
-	
-	
+	int fd_uinput = create_uinput();
+	usleep(500000);
+	char device_name[64];
+	input_event ev;
+	char* truedev;
+	ssize_t n;
+	int fd;
+
 	if (argc != 2 || !strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")) {
 		std::cerr << "\n";
 		std::cerr << "Usage: " << argv[0] << " [..-h | --help ]\n";
@@ -163,7 +170,6 @@ int main(int argc, char* argv[])
 	}
 
 	/* Open the specified device. */
-	int fd;
 	do {
 		fd = open(argv[1], O_RDONLY);
 	} while (fd == -1 && errno == EINTR);
@@ -173,39 +179,27 @@ int main(int argc, char* argv[])
 	}
 
 	/* Use EVIOCGNAME to get the device name. (First we clear it, though.) */
-	char device_name[64];
 	memset(device_name, 0, sizeof device_name);
 	ioctl(fd, EVIOCGNAME(sizeof device_name - 1), device_name); 
 
 	/* Obtain real, absolute path to the device. */
-	char* truedev;
 	truedev = canonicalize_file_name(argv[1]);
-	if (truedev != NULL) {
+	if (truedev != NULL)
 		std::cerr << "Reading from " << truedev << " (" << argv[1] << ")\n";
-	} else {
+	else
 		std::cerr << "Reading from " << argv[1] << "\n";
-	}
 
-	if (strlen(device_name) > 0) {
+	if (strlen(device_name) > 0)
 		std::cerr << "EVIOCGNAME ioctl reports device is named '" << device_name << "'.\n";
-	}
 
 	errno = 0;
-	if (ioctl(fd, EVIOCGRAB, 1) == 0) {
+	if (ioctl(fd, EVIOCGRAB, 1) == 0)
 		std::cerr << "Device grabbed (using EVIOCGRAB ioctl) successfully.\n";
-	} else {
+	else
 		std::cerr << "Failed to grab device (" << strerror(errno) << ").\n";
-	}
 	
-	// Create the virtual device to inject events into.
-	// Part of the creation is asynchrounous
-	// so we sleep for 500 ms to let it finish.
-	int fd_uinput = create_uinput();
-	usleep(500000);
 	
-	/* Intercept event loop */
-	input_event ev;
-	ssize_t bytes_read;
+	/* Read input events (forever). */
 	struct prev_btn_left_event {
 		int pressed = 0;
 		int released = 0;
@@ -213,8 +207,8 @@ int main(int argc, char* argv[])
 	while (1) {
 		
 		// TODO: better flow
-		bytes_read = read(fd, &ev, sizeof ev);
-		if (bytes_read == -1) {
+		n = read(fd, &ev, sizeof ev);
+		if (n == -1) {
 			/* It is not an error if the read was interrupted. */
 			if (errno == EINTR) {
 				continue;
@@ -223,14 +217,14 @@ int main(int argc, char* argv[])
 			std::cerr << argv[1] << ": " << strerror(errno) << ".\n";
 			break;
 		} else {
-			if (bytes_read == 0) {
+			if (n == 0) {
 				/* End of input; device detached? */
 				std::cerr << argv[1] << ": No more events.\n";
 				break;
 			} else {
-				if (bytes_read != sizeof ev) {
+				if (n != sizeof ev) {
 					/* This should never occur; input driver or kernel bug. */
-					std::cerr << argv[1] << ": Invalid event (length " << (int)bytes_read << ", expected " << (int)sizeof ev<< ")\n";
+					std::cerr << argv[1] << ": Invalid event (length " << (int)n << ", expected " << (int)sizeof ev<< ")\n";
 					/* We just ignore those, and wait for next event. */
 					continue;
 				}
