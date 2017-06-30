@@ -6,8 +6,7 @@
 #include <linux/input.h>
 #include <linux/uinput.h>
 #include <experimental/filesystem>
-
-// TODO: Profile performance
+#include <chrono>
 
 const std::string ERROR_IOCTL = "error: ioctl";
 const std::string ERROR_OPEN = "error: open";
@@ -170,6 +169,13 @@ int get_timeval_usec(const timeval& t)
 	return t.tv_sec * 1000000 + t.tv_usec;
 }
 
+void print_timestamp(const int value)
+{
+	using namespace std::chrono;
+	time_t cur = system_clock::to_time_t(system_clock::now());
+	std::cout << "value: " << value << " | " << std::ctime(&cur);
+}
+
 int main()
 {
 	namespace fs = std::experimental::filesystem;
@@ -223,13 +229,8 @@ int main()
 	/* Intercept event loop */
 	input_event ev;
 	ssize_t bytes_read;
-	struct prev_btn_left_event {
-		// timestamp in microseconds
-		int pressed = 0;	
-		int released = 0;
-	} prev_event;
-	bool ignore;
-	
+	int prev_event[2] = {0, 0};
+	int delta;
 	while (1) {
 		
 		// TODO: better flow
@@ -258,31 +259,20 @@ int main()
 			}
 		}
 		
-		//std::cout << "CODE:	" << ev.code << "\n";
-		
-		// TODO: better flow?
-		ignore = false;
-		if (ev.code == BTN_LEFT) {
-// 			std::cout << "timestamp: " << get_timeval_usec(ev.time) << "\n";
-			if (ev.value == 1) {
-				if (get_timeval_usec(ev.time) - prev_event.pressed < TRIGGER_THRESHOLD) {
-					std::cout << "Double pressed\n";
-					ignore = true;
-				}
-				prev_event.pressed = get_timeval_usec(ev.time);
-			} else if (ev.value == 0) {
-				if (get_timeval_usec(ev.time) - prev_event.released < TRIGGER_THRESHOLD) {
-					std::cout << "Double released\n";
-					ignore = true;
-				}
-
-				prev_event.released = get_timeval_usec(ev.time);
-			}
+		/* Inject non left button event and continue */
+		if (ev.code != BTN_LEFT) {
+			inject_event(fd_uinput, ev);
+			continue;
 		}
-
-		if (not ignore) {
+		
+		/* In case of left button event, test the event and ignore if delta is below threshold */
+		delta = get_timeval_usec(ev.time) - prev_event[ev.value];
+		if (delta < TRIGGER_THRESHOLD) {
+			print_timestamp(ev.value);
+		} else {
 			inject_event(fd_uinput, ev);
 		}
+		prev_event[ev.value] = get_timeval_usec(ev.time);
 	}
 
 	destroy_uinput(fd_uinput);
