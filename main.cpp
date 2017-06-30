@@ -165,12 +165,12 @@ void inject_event(const int fd, const input_event& event)
 	}
 }
 
-int get_timeval_usec(const struct timeval& t)
+int get_timeval_usec(const timeval& t)
 {
 	return t.tv_sec * 1000000 + t.tv_usec;
 }
 
-int main(int argc, char* argv[])
+int main()
 {
 	namespace fs = std::experimental::filesystem;
 	using std::string;
@@ -229,8 +229,8 @@ int main(int argc, char* argv[])
 		int released = 0;
 	} prev_event;
 	bool ignore;
+	
 	while (1) {
-
 		// TODO: better flow
 		bytes_read = read(fd, &ev, sizeof ev);
 		if (bytes_read == -1) {
@@ -239,40 +239,40 @@ int main(int argc, char* argv[])
 				continue;
 			}
 			/* Print an error message, and break out of loop. */
-			std::cerr << argv[1] << ": " << strerror(errno) << ".\n";
+			std::cerr << device_path << ": " << strerror(errno) << ".\n";
 			break;
 		} else {
 			if (bytes_read == 0) {
 				/* End of input; device detached? */
-				std::cerr << argv[1] << ": No more events.\n";
+				std::cerr << device_path << ": No more events.\n";
 				break;
 			} else {
 				if (bytes_read != sizeof ev) {
 					/* This should never occur; input driver or kernel bug. */
-					std::cerr << argv[1] << ": Invalid event (length "
+					std::cerr << device_path << ": Invalid event (length "
 						<< (int)bytes_read << ", expected " << (int)sizeof ev<< ")\n";
 					/* We just ignore those, and wait for next event. */
 					continue;
 				}
 			}
 		}
-
-		//std::cout << "CODE:	" << ev.code << "\n";
-
+		
 		// TODO: better flow?
 		ignore = false;
 		if (ev.code == BTN_LEFT) {
+// 			std::cout << "timestamp: " << get_timeval_usec(ev.time) << "\n";
 			if (ev.value == 1) {
 				if (get_timeval_usec(ev.time) - prev_event.pressed < TRIGGER_THRESHOLD) {
-					//std::cout << "Double pressed\n";
+					std::cout << "Double pressed\n";
 					ignore = true;
 				}
 				prev_event.pressed = get_timeval_usec(ev.time);
 			} else if (ev.value == 0) {
 				if (get_timeval_usec(ev.time) - prev_event.released < TRIGGER_THRESHOLD) {
-					//std::cout << "Double released\n";
+					std::cout << "Double released\n";
 					ignore = true;
 				}
+
 				prev_event.released = get_timeval_usec(ev.time);
 			}
 		}
