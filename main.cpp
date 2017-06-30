@@ -164,7 +164,7 @@ void inject_event(const int fd, const input_event& event)
 	}
 }
 
-int get_timeval_usec(const timeval& t)
+uint64_t get_timeval_usec(const timeval& t)
 {
 	return t.tv_sec * 1000000 + t.tv_usec;
 }
@@ -181,7 +181,9 @@ int main()
 	namespace fs = std::experimental::filesystem;
 	using std::string;
 
-	/* Find the path to the event mouse */
+	/*
+	 * Find the path to the event mouse
+	 */
 	string device_path;
 	const string dev_input = "/dev/input";
 	fs::directory_iterator it(dev_input + "/by-path");
@@ -195,7 +197,9 @@ int main()
 		}
 	}
 
-	/* Open the specified device. */
+	/*
+	 * Open the specified device.
+	 */
 	int fd;
 	do {
 		fd = open(device_path.c_str(), O_RDONLY);
@@ -205,7 +209,9 @@ int main()
 		return 1;
 	}
 
-	/* Use EVIOCGNAME to get the device name. (First we clear it, though.) */
+	/*
+	 * Use EVIOCGNAME to get the device name.
+	 */
 	char device_name[64];
 	memset(device_name, 0, sizeof device_name);
 	ioctl(fd, EVIOCGNAME(sizeof device_name - 1), device_name); 
@@ -222,18 +228,18 @@ int main()
 	}
 
 	// Create the virtual device to inject events into.
-
 	const int fd_uinput = create_uinput();
-	usleep(500000);		// Part of the creation is asynchrounous so we sleep for 500 ms to let it finish.
 
-	/* Intercept event loop */
+	/*
+	 * Intercept event loop
+	 */
 	input_event ev;
 	ssize_t bytes_read;
-	int prev_event[2] = {0, 0};
-	int delta;
+	uint64_t prev_event[2] = {0, 0};
+	uint64_t delta;
 	while (1) {
-		
 		// TODO: better flow
+		/* Read the event. */
 		bytes_read = read(fd, &ev, sizeof ev);
 		if (bytes_read == -1) {
 			/* It is not an error if the read was interrupted. */
@@ -259,13 +265,13 @@ int main()
 			}
 		}
 		
-		/* Inject non left button event and continue */
+		/* Always inject non left button events */
 		if (ev.code != BTN_LEFT) {
 			inject_event(fd_uinput, ev);
 			continue;
 		}
 		
-		/* In case of left button event, test the event and ignore if delta is below threshold */
+		/* In case of left button event, ignore if delta is below threshold. */
 		delta = get_timeval_usec(ev.time) - prev_event[ev.value];
 		if (delta < TRIGGER_THRESHOLD) {
 			print_timestamp(ev.value);
