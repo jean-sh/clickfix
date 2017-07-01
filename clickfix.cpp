@@ -243,28 +243,23 @@ int main()
 		// TODO: better flow
 		/* Read the event. */
 		bytes_read = read(fd, &ev, sizeof ev);
-		if (bytes_read == -1) {
+		if (bytes_read == -1 && errno == EINTR) {
 			/* It is not an error if the read was interrupted. */
-			if (errno == EINTR) {
-				continue;
-			}
+			continue;
+		} else if (bytes_read == -1) {
 			/* Print an error message, and break out of loop. */
 			std::cerr << device_path << ": " << strerror(errno) << ".\n";
 			break;
-		} else {
-			if (bytes_read == 0) {
-				/* End of input; device detached? */
-				std::cerr << device_path << ": No more events.\n";
-				break;
-			} else {
-				if (bytes_read != sizeof ev) {
-					/* This should never occur; input driver or kernel bug. */
-					std::cerr << device_path << ": Invalid event (length "
-						<< (int)bytes_read << ", expected " << (int)sizeof ev << ")\n";
-					/* We just ignore those, and wait for next event. */
-					continue;
-				}
-			}
+		} else if (bytes_read == 0) {
+			/* End of input; device detached? */
+			std::cerr << device_path << ": No more events.\n";
+			break;
+		} else if (bytes_read != sizeof ev) {
+			/* This should never occur; input driver or kernel bug. */
+			std::cerr << device_path << ": Invalid event (length "
+				<< (int)bytes_read << ", expected " << (int)sizeof ev << ")\n";
+			/* We just ignore those, and wait for next event. */
+			continue;
 		}
 		
 		/* Always inject non left button events */
