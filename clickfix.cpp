@@ -33,8 +33,10 @@ int create_uinput()
 		uinput_path = dev_uinput.string();
 	} else if (fs::exists(dev_input_uinput)) {
 		uinput_path = dev_input_uinput.string();
+	} else {
+		die("Could not find uinput device.");
 	}
-	std::cout << "Found uinput device: " << uinput_path << "\n";
+	std::cout << "Found uinput device: " << uinput_path << ".\n";
 	
 	/* Open uinput */
     const int fd = open(uinput_path.c_str(), O_WRONLY | O_NONBLOCK);
@@ -192,7 +194,7 @@ int main()
 			string tmp;
 			tmp = fs::read_symlink(f.path()).string();
 			device_path = dev_input + tmp.substr(2);
-			std::cout << "Found event mouse: " << device_path << "\n";
+			std::cout << "Found event mouse: " << device_path << ".\n";
 			break;
 		}
 	}
@@ -217,12 +219,12 @@ int main()
 	ioctl(fd, EVIOCGNAME(sizeof device_name - 1), device_name); 
 
 	if (strlen(device_name) > 0) {
-		std::cerr << "EVIOCGNAME ioctl reports device is named '" << device_name << "'.\n";
+		std::cerr << "Mouse name: " << device_name << ".\n";
 	}
 
 	errno = 0;
 	if (ioctl(fd, EVIOCGRAB, 1) == 0) {
-		std::cerr << "Device grabbed (using EVIOCGRAB ioctl) successfully.\n";
+		std::cerr << "Device grabbed successfully.\n";
 	} else {
 		std::cerr << "Failed to grab device (" << strerror(errno) << ").\n";
 	}
@@ -258,7 +260,7 @@ int main()
 				if (bytes_read != sizeof ev) {
 					/* This should never occur; input driver or kernel bug. */
 					std::cerr << device_path << ": Invalid event (length "
-						<< (int)bytes_read << ", expected " << (int)sizeof ev<< ")\n";
+						<< (int)bytes_read << ", expected " << (int)sizeof ev << ")\n";
 					/* We just ignore those, and wait for next event. */
 					continue;
 				}
