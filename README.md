@@ -9,3 +9,6 @@ For 64-bit computers, you can download the precompiled executable and launch man
 You'll need flags for c++11 or later and for the experimental/filesystem library:
 
 `g++ -std=c++11 -O3 clickfix.cpp -o clickfix -lstdc++fs`
+
+## Todo
+ * There is a bug where some left clicks are ignored even though they are not double clicks.
