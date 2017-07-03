@@ -189,9 +189,7 @@ int main()
 	namespace fs = std::experimental::filesystem;
 	using std::string;
 
-	/*
-	 * Find the path to the event mouse
-	 */
+	/* Find the path to the event mouse. */
 	string device_path;
 	const string dev_input = "/dev/input";
 	fs::directory_iterator it(dev_input + "/by-path");
@@ -205,9 +203,7 @@ int main()
 		}
 	}
 
-	/*
-	 * Open the specified device.
-	 */
+	/* Open the specified device. */
 	int fd;
 	do {
 		fd = open(device_path.c_str(), O_RDONLY);
@@ -217,9 +213,7 @@ int main()
 		return 1;
 	}
 
-	/*
-	 * Use EVIOCGNAME to get the device name.
-	 */
+	/* Use EVIOCGNAME to get the device name. */
 	char device_name[64];
 	memset(device_name, 0, sizeof device_name);
 	ioctl(fd, EVIOCGNAME(sizeof device_name - 1), device_name); 
@@ -235,12 +229,10 @@ int main()
 		std::cerr << "Failed to grab device (" << strerror(errno) << ").\n";
 	}
 
-	// Create the virtual device to inject events into.
+	/* Create the virtual device to inject events into. */
 	const int fd_uinput = create_uinput();
 
-	/*
-	 * Intercept event loop
-	 */
+	/* Main loop: intercept, test and reinject. */
 	input_event ev;
 	ssize_t bytes_read;
 	uint64_t prev_event[2] = {0, 0};
