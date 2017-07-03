@@ -12,6 +12,12 @@ const std::string ERROR_IOCTL = "error: ioctl";
 const std::string ERROR_OPEN = "error: open";
 const std::string ERROR_WRITE = "error: write";
 const int TRIGGER_THRESHOLD = 90000;
+
+enum EventValue
+{
+	RELEASE = 0,
+	PRESS = 1
+};
 	
 void die(const std::string& message)
 {
@@ -239,8 +245,8 @@ int main()
 	ssize_t bytes_read;
 	uint64_t prev_event[2] = {0, 0};
 	uint64_t delta;
+	int last_value;
 	while (1) {
-		// TODO: better flow
 		/* Read the event. */
 		bytes_read = read(fd, &ev, sizeof ev);
 		if (bytes_read == -1 && errno == EINTR) {
@@ -268,14 +274,21 @@ int main()
 			continue;
 		}
 		
-		/* In case of left button event, ignore if delta is below threshold. */
-		delta = get_timeval_usec(ev.time) - prev_event[ev.value];
-		if (delta < TRIGGER_THRESHOLD) {
-			print_timestamp(ev.value);
-		} else {
+		/* Always inject release events if the last event was a press */
+		if (last_value == PRESS && ev.value == RELEASE) {
 			inject_event(fd_uinput, ev);
+		} else {
+			/* In case of left button event, ignore if delta is below threshold. */
+			delta = get_timeval_usec(ev.time) - prev_event[ev.value];
+			if (delta < TRIGGER_THRESHOLD) {
+				print_timestamp(ev.value);
+				continue;
+			} else {
+				inject_event(fd_uinput, ev);
+			}
 		}
 		prev_event[ev.value] = get_timeval_usec(ev.time);
+		last_value = ev.value;
 	}
 
 	destroy_uinput(fd_uinput);
